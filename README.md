@@ -21,6 +21,24 @@ A Rust-first toolkit for inspecting, comparing, and verifying Stellar / Soroban 
 - Check deployed contract identity against a local artifact
 - Produce deterministic fingerprints for artifact and interface tracking
 
+## Install
+
+Prebuilt binaries and crates.io packages do not exist yet, so there are two
+supported install paths today; see [`docs/installation.md`](docs/installation.md).
+
+Install the binary straight from the repository (a recent stable Rust
+toolchain is required):
+
+```bash
+cargo install --git https://github.com/StellarFoundry/stellar-contract-platform observatory-cli --locked
+stellar-contract-platform doctor
+```
+
+Or build from a local clone — see [Quickstart](#quickstart).
+
+The package is named `observatory-cli`; the installed binary is named
+`stellar-contract-platform`.
+
 ## Quickstart
 
 ```bash

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- Installation: document the working `cargo install --git` path (package
+  `observatory-cli`, binary `stellar-contract-platform`) and state explicitly
+  that no crates.io package or prebuilt binary exists yet. See
+  `docs/installation.md`.
 ### Added
 
 - Project configuration: `observatory.yml`/`.yaml`/`.toml`/`.json` with strict
