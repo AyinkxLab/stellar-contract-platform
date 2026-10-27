@@ -89,6 +89,7 @@ Early but practical. The project focuses on contract intelligence, compatibility
 - [Compatibility](docs/compatibility.md)
 - [Verification](docs/verification.md)
 - [Roadmap](docs/roadmap.md)
+- [Drips readiness and appeal checklist](docs/DRIPS_READINESS.md)
 
 ## License
 
