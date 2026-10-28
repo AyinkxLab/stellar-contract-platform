@@ -4,7 +4,9 @@ This document summarizes the issue backlog by phase. It is a map, not a
 contract. Every issue is real engineering work derived from the current
 architecture; there are no placeholder or filler issues.
 
-As of the expanded backlog the repository contains **130 open issues**.
+As of 2026-10-28 the repository contains **123 open issues**. Issues #9, #102,
+and #112 were closed as completed after this snapshot; check GitHub for the
+current list and the curated [WAVE_BOARD.md](WAVE_BOARD.md).
 
 ## How to read an issue
 

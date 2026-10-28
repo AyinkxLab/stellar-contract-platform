@@ -60,7 +60,7 @@ matrix.
 
 - Live RPC transport and SSRF hardening (must land together; #13).
 - Deployed code retrieval and interface comparison (#14, #15).
-- Rename detection (#8) and Markdown diff (#9).
+- Rename detection (#8).
 - Configurable compatibility policy file (#12).
 - Persistence and webhook delivery (planned).
 
@@ -73,7 +73,7 @@ criteria, Testing, an example commit message, and guidelines. See
 
 ## Testing status
 
-- `cargo test --workspace --all-features`: **129 tests pass** locally.
+- `cargo test --workspace --all-features`: **147 tests pass** locally.
 - `cargo fmt --all -- --check`: clean.
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`: clean.
 - `cargo doc --workspace --no-deps` with `-D warnings`: clean.
@@ -92,8 +92,10 @@ criteria, Testing, an example commit message, and guidelines. See
 ## Deployment and release status
 
 - Not deployed as a hosted service.
-- Not published to crates.io.
-- CI runs format, clippy, tests (Linux/Windows/macOS), and docs.
+- `v0.1.0` release packaging is being added with a tag-driven workflow; crates.io
+  publication remains pending.
+- CI runs format, clippy, tests (Linux/Windows/macOS), docs, MSRV (1.88), and a
+  RustSec audit.
 
 ## Roadmap
 

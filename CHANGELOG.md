@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Build: raised the workspace MSRV from 1.85 to 1.88 to match the
+  `stellar-xdr 28` → `serde_with` → `darling` toolchain requirement, and updated
+  the MSRV CI job.
+- Security: replaced the unmaintained `serde_yml` dependency with
+  `serde_yaml_ng`, removing `noyalib` and resolving RUSTSEC-2026-0333.
+- Documentation: point repository, installation, and Wave links at
+  `AyinkxLab/stellar-contract-platform`.
+
 ### Documentation
 
 - Installation: document the working `cargo install --git` path (package

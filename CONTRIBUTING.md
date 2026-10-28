@@ -14,7 +14,7 @@ Thanks for helping build contract intelligence tooling for Stellar and Soroban.
 ## Setup
 
 ```bash
-git clone https://github.com/StellarFoundry/stellar-contract-platform
+git clone https://github.com/AyinkxLab/stellar-contract-platform
 cd stellar-contract-platform
 cargo build
 cargo test

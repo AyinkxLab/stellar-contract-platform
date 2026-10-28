@@ -5,7 +5,7 @@
 Build from source (a recent stable Rust toolchain is required):
 
 ```bash
-git clone https://github.com/StellarFoundry/stellar-contract-platform
+git clone https://github.com/AyinkxLab/stellar-contract-platform
 cd stellar-contract-platform
 cargo build --release
 ```
