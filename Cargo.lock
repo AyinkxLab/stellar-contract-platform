@@ -845,6 +845,7 @@ dependencies = [
  "observatory-core",
  "serde",
  "serde_json",
+ "stellar-strkey 0.0.18",
  "stellar-xdr",
 ]
 

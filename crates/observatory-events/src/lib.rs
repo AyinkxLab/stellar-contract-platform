@@ -24,6 +24,17 @@
 //! A bare array of event objects is also accepted. `topics` and `data` are
 //! optional. `type` defaults to `contract`.
 //!
+//! Raw `ContractEvent` XDR is accepted too. Pass a base64 blob directly, or a
+//! fixture entry with an `xdr` field (the `eventXdr` spelling is also accepted):
+//!
+//! ```json
+//! { "events": [{ "xdr": "<base64 ContractEvent>" }] }
+//! ```
+//!
+//! A raw event has no ledger or transaction metadata, so those fields are
+//! `null`. Its contract id, type, topics, and data are normalized exactly like
+//! a fixture entry.
+//!
 //! # Limitation
 //!
 //! Declared events in the contract specification (`contractspecv0`) and
@@ -35,7 +46,7 @@ use observatory_core::limits::{MAX_EVENTS, MAX_EVENT_FILE_BYTES};
 use observatory_core::{ObservatoryError, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use stellar_xdr::{Limits, ReadXdr, ScVal};
+use stellar_xdr::{ContractEvent, ContractEventBody, Limits, ReadXdr, ScVal};
 
 /// A normalized contract event.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -78,20 +89,37 @@ pub fn parse_events_str(input: &str) -> Result<Vec<EventRecord>> {
             MAX_EVENT_FILE_BYTES
         )));
     }
-    let value: Value = serde_json::from_str(input)
-        .map_err(|error| ObservatoryError::decode(format!("invalid event JSON: {error}")))?;
-    parse_events(&value)
+    match serde_json::from_str(input) {
+        Ok(value) => parse_events(&value),
+        Err(json_error) => {
+            let trimmed = input.trim();
+            // A bare base64 `ContractEvent` is not JSON. Try it only when the
+            // input does not look like a JSON document, so malformed fixtures
+            // keep their JSON-specific error.
+            if trimmed.starts_with('{') || trimmed.starts_with('[') {
+                return Err(ObservatoryError::decode(format!(
+                    "invalid event JSON: {json_error}"
+                )));
+            }
+            parse_contract_event_xdr(trimmed).map(|event| vec![event])
+        }
+    }
 }
 
 /// Parse an event fixture from a JSON value.
 pub fn parse_events(value: &Value) -> Result<Vec<EventRecord>> {
+    if let Some(encoded) = value.as_str() {
+        return parse_contract_event_xdr(encoded).map(|event| vec![event]);
+    }
     let array = if let Some(events) = value.get("events").and_then(Value::as_array) {
         events
     } else if let Some(events) = value.as_array() {
         events
+    } else if is_raw_event_entry(value) {
+        return parse_event(value).map(|event| vec![event]);
     } else {
         return Err(ObservatoryError::decode(
-            "event fixture must be an array or an object with an `events` array",
+            "event fixture must be an array, an object with an `events` array, or a base64 ContractEvent",
         ));
     };
     if array.len() > MAX_EVENTS {
@@ -140,10 +168,110 @@ pub fn filter(events: &[EventRecord], filter: &EventFilter) -> Vec<EventRecord> 
     out
 }
 
+/// Decode a base64 `ContractEvent` XDR blob into the normalized event shape.
+///
+/// Raw events do not carry ledger or transaction metadata, so [`EventRecord::ledger`]
+/// and [`EventRecord::tx_hash`] are `None`. The contract id, event type, topics,
+/// and data are mapped exactly as they are for fixture `ScVal` entries.
+pub fn parse_contract_event_xdr(encoded: &str) -> Result<EventRecord> {
+    let encoded = encoded.trim();
+    if encoded.is_empty() {
+        return Err(ObservatoryError::decode(
+            "ContractEvent XDR input must not be empty",
+        ));
+    }
+    if encoded.len() > MAX_EVENT_FILE_BYTES {
+        return Err(ObservatoryError::invalid(format!(
+            "ContractEvent XDR is {} bytes, exceeding the {} byte limit",
+            encoded.len(),
+            MAX_EVENT_FILE_BYTES
+        )));
+    }
+    let event = ContractEvent::from_xdr_base64(encoded, Limits::none())
+        .map_err(|error| ObservatoryError::decode(format!("invalid ContractEvent XDR: {error}")))?;
+    record_from_contract_event(&event)
+}
+
+fn record_from_contract_event(event: &ContractEvent) -> Result<EventRecord> {
+    let ContractEventBody::V0(body) = &event.body;
+    record_from_parts(
+        event
+            .contract_id
+            .as_ref()
+            .map(|contract_id| format!("{}", stellar_strkey::Contract(contract_id.0 .0))),
+        None,
+        None,
+        event.type_.name().to_ascii_lowercase(),
+        body.topics.as_slice(),
+        &body.data,
+    )
+}
+
+fn record_from_parts(
+    contract_id: Option<String>,
+    ledger: Option<u32>,
+    tx_hash: Option<String>,
+    event_type: String,
+    topics: &[ScVal],
+    data: &ScVal,
+) -> Result<EventRecord> {
+    let mut rendered_topics = Vec::with_capacity(topics.len());
+    let mut topic_symbols = Vec::new();
+    for topic in topics {
+        rendered_topics.push(render_scval(topic)?);
+        if let Some(text) = scval_text(topic) {
+            topic_symbols.push(text);
+        }
+    }
+
+    Ok(EventRecord {
+        contract_id,
+        ledger,
+        tx_hash,
+        event_type,
+        topics: rendered_topics,
+        topic_symbols,
+        data: render_scval(data)?,
+    })
+}
+
+fn is_raw_event_entry(value: &Value) -> bool {
+    value.as_object().is_some_and(|object| {
+        matches!(object.get("xdr"), Some(Value::String(_)))
+            || matches!(object.get("eventXdr"), Some(Value::String(_)))
+    })
+}
+
 fn parse_event(value: &Value) -> Result<EventRecord> {
     let object = value
         .as_object()
         .ok_or_else(|| ObservatoryError::decode("event entry must be a JSON object"))?;
+    if let Some(raw) = object.get("xdr").or_else(|| object.get("eventXdr")) {
+        let encoded = raw
+            .as_str()
+            .ok_or_else(|| ObservatoryError::decode("`xdr` must be a base64 string"))?;
+        let mut record = parse_contract_event_xdr(encoded)?;
+        // Preserve fixture-only metadata supplied next to the raw event.
+        if record.contract_id.is_none() {
+            record.contract_id = object
+                .get("contractId")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+        }
+        if record.ledger.is_none() {
+            record.ledger = object
+                .get("ledger")
+                .and_then(Value::as_u64)
+                .map(|value| value as u32);
+        }
+        if record.tx_hash.is_none() {
+            record.tx_hash = object
+                .get("txHash")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+        }
+        return Ok(record);
+    }
     let topics_value = object.get("topics");
     let topics = match topics_value {
         Some(Value::Array(items)) => items
@@ -164,37 +292,27 @@ fn parse_event(value: &Value) -> Result<EventRecord> {
         Some(_) => return Err(ObservatoryError::decode("`data` must be a base64 string")),
     };
 
-    let mut rendered_topics = Vec::with_capacity(topics.len());
-    let mut topic_symbols = Vec::new();
-    for topic in &topics {
-        rendered_topics.push(render_scval(topic)?);
-        if let Some(text) = scval_text(topic) {
-            topic_symbols.push(text);
-        }
-    }
-
-    Ok(EventRecord {
-        contract_id: object
+    record_from_parts(
+        object
             .get("contractId")
             .and_then(Value::as_str)
             .map(str::to_string),
-        ledger: object
+        object
             .get("ledger")
             .and_then(Value::as_u64)
             .map(|value| value as u32),
-        tx_hash: object
+        object
             .get("txHash")
             .and_then(Value::as_str)
             .map(str::to_string),
-        event_type: object
+        object
             .get("type")
             .and_then(Value::as_str)
             .unwrap_or("contract")
             .to_string(),
-        topics: rendered_topics,
-        topic_symbols,
-        data: render_scval(&data)?,
-    })
+        &topics,
+        &data,
+    )
 }
 
 fn decode_scval(encoded: &str) -> Result<ScVal> {
@@ -219,10 +337,35 @@ fn scval_text(value: &ScVal) -> Option<String> {
 mod tests {
     use super::*;
     use serde_json::json;
-    use stellar_xdr::{ScSymbol, StringM, WriteXdr};
+    use stellar_xdr::{
+        ContractEventType, ContractEventV0, ContractId, ExtensionPoint, Hash, ScSymbol, StringM,
+        WriteXdr,
+    };
 
     fn symbol_base64(text: &str) -> String {
         ScVal::Symbol(ScSymbol(StringM::try_from(text).unwrap()))
+            .to_xdr_base64(Limits::none())
+            .unwrap()
+    }
+
+    fn contract_event(contract_id: Option<[u8; 32]>) -> ContractEvent {
+        let topics = vec![
+            ScVal::Symbol(ScSymbol(StringM::try_from("transfer").unwrap())),
+            ScVal::Symbol(ScSymbol(StringM::try_from("from").unwrap())),
+        ];
+        ContractEvent {
+            ext: ExtensionPoint::V0,
+            contract_id: contract_id.map(|bytes| ContractId(Hash(bytes))),
+            type_: ContractEventType::Contract,
+            body: ContractEventBody::V0(ContractEventV0 {
+                topics: topics.try_into().unwrap(),
+                data: ScVal::Symbol(ScSymbol(StringM::try_from("amount").unwrap())),
+            }),
+        }
+    }
+
+    fn contract_event_base64(contract_id: Option<[u8; 32]>) -> String {
+        contract_event(contract_id)
             .to_xdr_base64(Limits::none())
             .unwrap()
     }
@@ -325,5 +468,58 @@ mod tests {
     #[test]
     fn empty_events_are_allowed() {
         assert!(parse_events(&json!({ "events": [] })).unwrap().is_empty());
+    }
+
+    #[test]
+    fn decodes_raw_contract_event_xdr() {
+        let contract_id = [9u8; 32];
+        let expected_id = format!("{}", stellar_strkey::Contract(contract_id));
+        let encoded = contract_event_base64(Some(contract_id));
+
+        let raw = parse_contract_event_xdr(&encoded).unwrap();
+        assert_eq!(raw.contract_id.as_deref(), Some(expected_id.as_str()));
+        assert_eq!(raw.event_type, "contract");
+        assert_eq!(raw.topic_symbols, vec!["transfer", "from"]);
+        assert_eq!(raw.topics.len(), 2);
+        assert!(raw.data.contains("amount"));
+        assert_eq!(raw.ledger, None);
+        assert_eq!(raw.tx_hash, None);
+
+        let fixture = json!([{
+            "contractId": expected_id,
+            "type": "contract",
+            "topics": [symbol_base64("transfer"), symbol_base64("from")],
+            "data": symbol_base64("amount")
+        }]);
+        assert_eq!(parse_events(&fixture).unwrap()[0], raw);
+    }
+
+    #[test]
+    fn decodes_raw_event_inside_a_fixture_entry() {
+        let encoded = contract_event_base64(None);
+        let events = parse_events(&json!({
+            "events": [{ "xdr": encoded, "ledger": 77, "txHash": "abc" }]
+        }))
+        .unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].contract_id, None);
+        assert_eq!(events[0].ledger, Some(77));
+        assert_eq!(events[0].tx_hash.as_deref(), Some("abc"));
+    }
+
+    #[test]
+    fn accepts_a_bare_raw_event_blob() {
+        let encoded = contract_event_base64(Some([3u8; 32]));
+        let events = parse_events_str(&encoded).unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].event_type, "contract");
+    }
+
+    #[test]
+    fn rejects_malformed_contract_event_xdr() {
+        let error = parse_contract_event_xdr("not base64!!!").unwrap_err();
+        assert_eq!(error.code(), observatory_core::ErrorCode::Decode);
+        assert!(error.to_string().contains("ContractEvent"));
+        assert!(parse_events_str("not base64!!!").is_err());
     }
 }
