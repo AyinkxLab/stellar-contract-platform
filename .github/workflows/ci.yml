@@ -53,14 +53,61 @@ jobs:
       - run: cargo test --workspace --all-features
 
 
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      - uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2
+        with:
+          tool: cargo-llvm-cov
+      - name: Generate coverage
+        run: |
+          mkdir -p target/coverage
+          cargo llvm-cov --workspace --all-features \
+            --lcov --output-path target/coverage/lcov.info
+          cargo llvm-cov report --summary-only \
+            | tee target/coverage/summary.txt
+          {
+            echo "## Test coverage"
+            echo
+            echo '```'
+            cat target/coverage/summary.txt
+            echo '```'
+            echo
+            echo "Coverage is reported but not enforced yet. See docs/testing.md."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Apply advisory coverage floor (non-blocking)
+        continue-on-error: true
+        env:
+          # Kept at zero until a baseline is agreed. Raise this value later;
+          # the step is non-blocking, so it never fails a pull request yet.
+          COVERAGE_ADVISORY_MIN_LINES: "0"
+        run: cargo llvm-cov report --fail-under-lines "$COVERAGE_ADVISORY_MIN_LINES"
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage
+          path: |
+            target/coverage/lcov.info
+            target/coverage/summary.txt
+          if-no-files-found: error
+          retention-days: 14
+
   msrv:
-    name: MSRV (1.85.0)
+    name: MSRV (1.88.0)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@1.85.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - run: cargo build --workspace --locked
       - run: cargo test --workspace --all-features --locked

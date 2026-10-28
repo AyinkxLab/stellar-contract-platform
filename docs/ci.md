@@ -47,6 +47,13 @@ jobs:
             contract.wasm --contract C... --rpc-fixture ci/rpc.json --network testnet
 ```
 
+## Coverage
+
+The `Coverage` CI job runs `cargo-llvm-cov` on pull requests and pushes to
+`main`, writes a summary to the job summary, and uploads an `lcov.info` artifact.
+The coverage floor is advisory (`continue-on-error`) while a baseline is
+established. See [testing.md](testing.md#coverage) for the exact commands.
+
 ## JSON reports
 
 Every command supports `--json`. Reports are wrapped in a versioned envelope:

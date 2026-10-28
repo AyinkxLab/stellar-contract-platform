@@ -34,6 +34,42 @@ cargo test --workspace
 | Event fixtures | `observatory-events` test helpers (base64 `ScVal`) |
 | Ledger entries | `stellar-xdr` `LedgerEntryData` encoded in tests |
 
+## Coverage
+
+CI reports line coverage with [`cargo-llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov),
+which uses LLVM's source-based instrumentation. The `Coverage` job runs on every
+pull request and on pushes to `main`:
+
+```bash
+mkdir -p target/coverage
+cargo llvm-cov --workspace --all-features \
+  --lcov --output-path target/coverage/lcov.info
+cargo llvm-cov report --summary-only | tee target/coverage/summary.txt
+```
+
+The job:
+
+- writes a readable summary to the GitHub Actions job summary (visible from the
+  pull request checks page),
+- uploads `target/coverage/lcov.info` and `target/coverage/summary.txt` as the
+  `coverage` artifact,
+- runs an advisory coverage floor with `continue-on-error: true`. The floor is
+  `0` while a baseline is established, so coverage is **reported but not
+  enforced**. Raise `COVERAGE_ADVISORY_MIN_LINES` in `.github/workflows/ci.yml`
+  once a sensible baseline is agreed.
+
+Run the same commands locally after installing the tool:
+
+```bash
+rustup component add llvm-tools-preview
+cargo install cargo-llvm-cov --locked
+cargo llvm-cov --workspace --all-features --open
+```
+
+`cargo llvm-cov` merges the workspace test run, so the numbers include unit,
+integration, and CLI tests. Doc tests are not instrumented. Failed tests still
+fail the job; only the coverage floor is advisory.
+
 ## Adding tests
 
 - Decoding changes must include malformed-input tests.

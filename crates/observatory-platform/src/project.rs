@@ -171,7 +171,7 @@ impl ProjectConfig {
     /// Parse configuration text in the given format.
     pub fn parse(input: &str, format: ConfigFormat) -> Result<Self> {
         let parsed = match format {
-            ConfigFormat::Yaml => serde_yml::from_str(input).map_err(|error| error.to_string()),
+            ConfigFormat::Yaml => serde_yaml_ng::from_str(input).map_err(|error| error.to_string()),
             ConfigFormat::Toml => toml::from_str(input).map_err(|error| error.to_string()),
             ConfigFormat::Json => serde_json::from_str(input).map_err(|error| error.to_string()),
         };
