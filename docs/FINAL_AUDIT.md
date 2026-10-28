@@ -41,7 +41,7 @@ matrix.
 | Persistence | Not implemented (#42) |
 | GitHub Action | Not implemented (#27) |
 | Fuzzing | Not implemented (#5, #7) |
-| Release packaging | In progress: tag-driven release workflow |
+| Release packaging | Verified: `v0.1.0` archives + SHA256 for Linux/macOS/Windows |
 
 ## Tests
 

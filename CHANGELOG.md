@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-28
+
+First tagged release. Linux x86_64, macOS arm64, and Windows x86_64 archives
+with SHA256 checksums are attached to the GitHub Release. crates.io publication
+is still pending.
+
 ### Changed
 
 - Build: raised the workspace MSRV from 1.85 to 1.88 to match the
