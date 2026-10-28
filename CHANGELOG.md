@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/installation.md`.
 ### Added
 
+- Deployment: opt-in, bounded, per-run `LedgerEntryCache` with cached
+  `inspect_with_cache` and `deployed_wasm_with_cache` lookups; repeated ledger
+  keys reuse one `getLedgerEntries` call. See `docs/deployment.md`.
 - Typed JSON-RPC error taxonomy: `RpcError`/`RpcErrorKind` classify standard
   JSON-RPC codes, preserve unknown raw codes, and expose `rpc_kind`/`rpc_code`
   in error reports. See `docs/rpc-errors.md`.

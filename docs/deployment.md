@@ -54,6 +54,37 @@ rejects hashes that are not 32 bytes or decode larger than the WASM size limit.
 This enables interface comparison between a local artifact and the deployed
 code (tracked as a follow-up).
 
+## Ledger-entry cache
+
+Repeated deployment lookups can reuse a small in-memory cache instead of issuing
+a fresh `getLedgerEntries` call:
+
+```rust
+use observatory_deployment::{inspect_with_cache, deployed_wasm_with_cache, LedgerEntryCache};
+
+let cache = LedgerEntryCache::with_default_capacity();
+let info = inspect_with_cache(&client, contract_id, &cache)?;
+let wasm = deployed_wasm_with_cache(&client, &hash, &cache)?;
+```
+
+The cache is **opt-in**: the existing `inspect` and `deployed_wasm` functions
+keep their uncached behavior. Policy:
+
+- Keyed by the base64-XDR ledger key for one process run.
+- Bounded: `LedgerEntryCache::new(capacity)` retains at most `capacity` entries
+  and evicts in insertion order. `with_default_capacity()` uses 128.
+  A capacity of `0` disables caching.
+- Negative results are cached too, so repeated lookups of a missing entry do not
+  call the RPC again.
+- Never persisted and never shared between runs, processes, or threads. Create a
+  new cache per run and drop it when the run ends. `clear()` empties it.
+- A cache hit returns the entry captured on the first call; it does not refresh
+  ledger state. Use a fresh cache when a later lookup must observe new state.
+
+`inspect_with_cache` and `deployed_wasm_with_cache` perform one transport call
+for a repeated key. Unit tests assert this for both successful and missing
+entries.
+
 ## Reported fields
 
 `contract_id`, `wasm_hash`, `last_modified_ledger_seq`,
@@ -63,5 +94,5 @@ code (tracked as a follow-up).
 
 - Only WASM-backed instances expose a hash; Stellar-asset contracts report no
   hash.
-- No caching is performed.
+- Caching is opt-in and in-memory only; see the cache policy above.
 - A live provider means a network call; keep such use out of unit tests.

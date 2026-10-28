@@ -5,6 +5,9 @@
 //! the deployed WASM hash. The ledger key and entry are real Stellar XDR types;
 //! nothing about the RPC shape is invented.
 
+use std::cell::RefCell;
+use std::collections::VecDeque;
+
 use observatory_core::limits::MAX_WASM_BYTES;
 use observatory_core::{ObservatoryError, Result};
 use observatory_rpc::{LedgerEntryResult, RpcClient, Transport};
@@ -13,6 +16,9 @@ use stellar_xdr::{
     ContractDataDurability, ContractExecutable, ContractId, Hash, LedgerEntryData, LedgerKey,
     LedgerKeyContractCode, LedgerKeyContractData, Limits, ReadXdr, ScAddress, ScVal, WriteXdr,
 };
+
+/// Default number of ledger entries retained by a [`LedgerEntryCache`].
+pub const DEFAULT_LEDGER_CACHE_CAPACITY: usize = 128;
 
 /// Information recovered about a deployed contract.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -27,6 +33,97 @@ pub struct DeploymentInfo {
     pub live_until_ledger_seq: Option<u32>,
     /// Whether a contract instance entry was found.
     pub found: bool,
+}
+
+/// A small, bounded, in-memory cache for `getLedgerEntries` lookups.
+///
+/// The cache is scoped to one process run: it is never persisted and never
+/// shared between runs or processes. It is opt-in — pass it to
+/// [`inspect_with_cache`] or [`deployed_wasm_with_cache`]. Entries are evicted
+/// in insertion order once [`capacity`](LedgerEntryCache::capacity) is reached,
+/// and missing entries are cached too so repeated misses do not hit the RPC.
+///
+/// A capacity of `0` disables caching while keeping the same call shape.
+#[derive(Debug)]
+pub struct LedgerEntryCache {
+    capacity: usize,
+    entries: RefCell<VecDeque<(String, Option<LedgerEntryResult>)>>,
+}
+
+impl LedgerEntryCache {
+    /// Creates a cache with the given capacity. `0` disables caching.
+    #[must_use]
+    pub fn new(capacity: usize) -> Self {
+        LedgerEntryCache {
+            capacity,
+            entries: RefCell::new(VecDeque::new()),
+        }
+    }
+
+    /// Creates a cache with [`DEFAULT_LEDGER_CACHE_CAPACITY`].
+    #[must_use]
+    pub fn with_default_capacity() -> Self {
+        LedgerEntryCache::new(DEFAULT_LEDGER_CACHE_CAPACITY)
+    }
+
+    /// The maximum number of entries retained.
+    #[must_use]
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// The number of cached entries, including cached misses.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.entries.borrow().len()
+    }
+
+    /// Whether the cache is empty.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Removes every cached entry.
+    pub fn clear(&self) {
+        self.entries.borrow_mut().clear();
+    }
+
+    fn get(&self, key: &str) -> Option<Option<LedgerEntryResult>> {
+        self.entries
+            .borrow()
+            .iter()
+            .find(|(cached, _)| cached == key)
+            .map(|(_, entry)| entry.clone())
+    }
+
+    fn insert(&self, key: String, entry: Option<LedgerEntryResult>) {
+        if self.capacity == 0 {
+            return;
+        }
+        let mut entries = self.entries.borrow_mut();
+        if entries.len() >= self.capacity {
+            entries.pop_front();
+        }
+        entries.push_back((key, entry));
+    }
+
+    /// Returns a cached entry, fetching it through `client` on a miss.
+    ///
+    /// Both hits and misses are cached; a miss is stored as `None`.
+    pub fn get_or_fetch<T: Transport>(
+        &self,
+        client: &RpcClient<T>,
+        ledger_key: &str,
+    ) -> Result<Option<LedgerEntryResult>> {
+        if let Some(cached) = self.get(ledger_key) {
+            return Ok(cached);
+        }
+        let entries = client.get_ledger_entries(&[ledger_key.to_string()])?;
+        let entry = entries.into_iter().next();
+        self.insert(ledger_key.to_string(), entry.clone());
+        Ok(entry)
+    }
 }
 
 /// Decode a contract id strkey into its 32-byte hash.
@@ -58,7 +155,24 @@ pub fn contract_instance_key(contract_id: &str) -> Result<String> {
 pub fn inspect<T: Transport>(client: &RpcClient<T>, contract_id: &str) -> Result<DeploymentInfo> {
     let key = contract_instance_key(contract_id)?;
     let entries = client.get_ledger_entries(&[key])?;
-    let Some(entry) = entries.first() else {
+    deployment_info(contract_id, entries.first())
+}
+
+/// Inspect a deployed contract using a [`LedgerEntryCache`].
+///
+/// Repeating the same lookup with the same cache performs one RPC call.
+pub fn inspect_with_cache<T: Transport>(
+    client: &RpcClient<T>,
+    contract_id: &str,
+    cache: &LedgerEntryCache,
+) -> Result<DeploymentInfo> {
+    let key = contract_instance_key(contract_id)?;
+    let entry = cache.get_or_fetch(client, &key)?;
+    deployment_info(contract_id, entry.as_ref())
+}
+
+fn deployment_info(contract_id: &str, entry: Option<&LedgerEntryResult>) -> Result<DeploymentInfo> {
+    let Some(entry) = entry else {
         return Ok(DeploymentInfo {
             contract_id: contract_id.to_string(),
             wasm_hash: None,
@@ -99,17 +213,38 @@ pub fn deployed_wasm<T: Transport>(
     client: &RpcClient<T>,
     wasm_hash_hex: &str,
 ) -> Result<Option<Vec<u8>>> {
+    let key = contract_code_key(wasm_hash_hex)?;
+    let entries = client.get_ledger_entries(&[key])?;
+    decode_deployed_wasm(entries.first())
+}
+
+/// Fetch deployed WASM using a [`LedgerEntryCache`].
+///
+/// Repeating the same lookup with the same cache performs one RPC call.
+pub fn deployed_wasm_with_cache<T: Transport>(
+    client: &RpcClient<T>,
+    wasm_hash_hex: &str,
+    cache: &LedgerEntryCache,
+) -> Result<Option<Vec<u8>>> {
+    let key = contract_code_key(wasm_hash_hex)?;
+    let entry = cache.get_or_fetch(client, &key)?;
+    decode_deployed_wasm(entry.as_ref())
+}
+
+fn contract_code_key(wasm_hash_hex: &str) -> Result<String> {
     let bytes = hex::decode(wasm_hash_hex.trim())
         .map_err(|error| ObservatoryError::invalid(format!("invalid wasm hash: {error}")))?;
     let hash: [u8; 32] = bytes
         .try_into()
         .map_err(|_| ObservatoryError::invalid("wasm hash must be 32 bytes"))?;
     let key = LedgerKey::ContractCode(LedgerKeyContractCode { hash: Hash(hash) });
-    let key_base64 = key.to_xdr_base64(Limits::none()).map_err(|error| {
+    key.to_xdr_base64(Limits::none()).map_err(|error| {
         ObservatoryError::internal(format!("failed to encode ledger key: {error}"))
-    })?;
-    let entries = client.get_ledger_entries(&[key_base64])?;
-    let Some(entry) = entries.first() else {
+    })
+}
+
+fn decode_deployed_wasm(entry: Option<&LedgerEntryResult>) -> Result<Option<Vec<u8>>> {
+    let Some(entry) = entry else {
         return Ok(None);
     };
     let data = LedgerEntryData::from_xdr_base64(&entry.xdr, Limits::none())
@@ -272,5 +407,98 @@ mod tests {
         let client = RpcClient::new(Endpoint::parse("https://example.org").unwrap(), transport);
         assert!(deployed_wasm(&client, "not-hex").is_err());
         assert!(deployed_wasm(&client, &hex::encode([1u8; 8])).is_err());
+    }
+
+    fn instance_transport(entry: &LedgerEntryResult) -> MockTransport {
+        MockTransport::new().with_result(
+            "getLedgerEntries",
+            json!({ "entries": [ {
+                "key": entry.key,
+                "xdr": entry.xdr,
+                "lastModifiedLedgerSeq": 123
+            } ] }),
+        )
+    }
+
+    #[test]
+    fn repeated_cached_lookup_calls_the_transport_once() {
+        let entry = instance_entry(3);
+        let transport = instance_transport(&entry);
+        let client = RpcClient::new(Endpoint::parse("https://example.org").unwrap(), &transport);
+        let cache = LedgerEntryCache::with_default_capacity();
+
+        let first = inspect_with_cache(&client, &contract_id(), &cache).unwrap();
+        let second = inspect_with_cache(&client, &contract_id(), &cache).unwrap();
+
+        assert_eq!(first, second);
+        assert_eq!(transport.calls(), vec!["getLedgerEntries".to_string()]);
+        assert_eq!(cache.len(), 1);
+    }
+
+    #[test]
+    fn cached_misses_are_reused_too() {
+        let transport =
+            MockTransport::new().with_result("getLedgerEntries", json!({ "entries": [] }));
+        let client = RpcClient::new(Endpoint::parse("https://example.org").unwrap(), &transport);
+        let cache = LedgerEntryCache::new(4);
+
+        assert!(
+            !inspect_with_cache(&client, &contract_id(), &cache)
+                .unwrap()
+                .found
+        );
+        assert!(
+            !inspect_with_cache(&client, &contract_id(), &cache)
+                .unwrap()
+                .found
+        );
+
+        assert_eq!(transport.calls().len(), 1);
+        assert_eq!(cache.len(), 1);
+    }
+
+    #[test]
+    fn cache_capacity_is_bounded_and_zero_disables_it() {
+        let entry = instance_entry(3);
+        let transport = instance_transport(&entry);
+        let client = RpcClient::new(Endpoint::parse("https://example.org").unwrap(), &transport);
+
+        let bounded = LedgerEntryCache::new(1);
+        let other = format!("{}", stellar_strkey::Contract([8u8; 32]));
+        let _ = inspect_with_cache(&client, &contract_id(), &bounded).unwrap();
+        let _ = inspect_with_cache(&client, &other, &bounded).unwrap();
+        assert_eq!(bounded.len(), 1);
+
+        let disabled = LedgerEntryCache::new(0);
+        let _ = inspect_with_cache(&client, &contract_id(), &disabled).unwrap();
+        let _ = inspect_with_cache(&client, &contract_id(), &disabled).unwrap();
+        assert!(disabled.is_empty());
+        assert_eq!(transport.calls().len(), 4);
+    }
+
+    #[test]
+    fn deployed_wasm_cache_calls_the_transport_once() {
+        let wasm = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
+        let entry = code_entry(&wasm);
+        let transport = MockTransport::new().with_result(
+            "getLedgerEntries",
+            json!({ "entries": [ { "key": "", "xdr": entry.xdr } ] }),
+        );
+        let client = RpcClient::new(Endpoint::parse("https://example.org").unwrap(), &transport);
+        let cache = LedgerEntryCache::with_default_capacity();
+        let hash = hex::encode([5u8; 32]);
+
+        assert_eq!(
+            deployed_wasm_with_cache(&client, &hash, &cache).unwrap(),
+            Some(wasm.to_vec())
+        );
+        assert_eq!(
+            deployed_wasm_with_cache(&client, &hash, &cache).unwrap(),
+            Some(wasm.to_vec())
+        );
+
+        assert_eq!(transport.calls().len(), 1);
+        cache.clear();
+        assert!(cache.is_empty());
     }
 }
