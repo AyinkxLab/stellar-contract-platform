@@ -6,7 +6,7 @@
 
 use serde_json::{json, Value};
 
-use crate::api::ROUTES;
+use crate::api::{METRICS_PATH, ROUTES};
 
 /// The OpenAPI version implemented by this document.
 pub const OPENAPI_VERSION: &str = "3.0.3";
@@ -83,7 +83,7 @@ pub fn document() -> Value {
 pub fn is_public(path: &str) -> bool {
     matches!(
         path,
-        "/api/v1/health" | "/api/v1/readiness" | "/api/v1/version"
+        "/api/v1/health" | "/api/v1/readiness" | "/api/v1/version" | METRICS_PATH
     )
 }
 
@@ -103,6 +103,23 @@ fn operation_for(method: &str, path: &str) -> Value {
     });
     if !public {
         operation["security"] = json!([{ "ApiKey": [] }, { "Bearer": [] }]);
+    }
+    if path == METRICS_PATH {
+        operation["description"] = json!(
+            "Aggregate request counters. Returns Prometheus text exposition by default \
+             and the same counters as JSON with `?format=json`."
+        );
+        operation["parameters"] = json!([{
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "description": "Response format; defaults to Prometheus text exposition.",
+            "schema": { "type": "string", "enum": ["prometheus", "json"], "default": "prometheus" }
+        }]);
+        operation["responses"]["200"]["content"] = json!({
+            "text/plain": { "schema": { "type": "string" } },
+            "application/json": { "schema": { "$ref": "#/components/schemas/Report" } }
+        });
     }
     if method == "POST" {
         operation["requestBody"] = json!({
@@ -137,6 +154,7 @@ fn summary_for(path: &str) -> &'static str {
         "/api/v1/health" => "Liveness probe",
         "/api/v1/readiness" => "Readiness probe",
         "/api/v1/version" => "Version information",
+        METRICS_PATH => "Aggregate request metrics",
         "/api/v1/contracts/inspect" => "Inspect a WASM artifact",
         "/api/v1/contracts/spec" => "Read the contract specification",
         "/api/v1/contracts/diff" => "Diff two interfaces",
@@ -178,5 +196,15 @@ mod tests {
         assert!(inspect.get("security").is_some());
         let health = &document["paths"]["/api/v1/health"]["get"];
         assert!(health.get("security").is_none());
+    }
+
+    #[test]
+    fn metrics_endpoint_is_public_and_offers_both_formats() {
+        let document = document();
+        let metrics = &document["paths"][METRICS_PATH]["get"];
+        assert!(metrics.get("security").is_none());
+        let content = &metrics["responses"]["200"]["content"];
+        assert!(content.get("text/plain").is_some());
+        assert!(content.get("application/json").is_some());
     }
 }

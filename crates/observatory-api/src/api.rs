@@ -18,9 +18,13 @@ use serde_json::Value;
 
 use crate::dto::{decode_wasm, CompatibilityRequest, DiffRequest, InspectRequest, WasmRequest};
 use crate::http::{Request, Response};
+use crate::metrics::{self, Metrics};
 
 /// The API version prefix.
 pub const API_PREFIX: &str = "/api/v1";
+
+/// The Prometheus metrics endpoint path.
+pub const METRICS_PATH: &str = "/api/v1/metrics";
 
 /// The declared routes: `(method, path)`. Used by the router and by the
 /// OpenAPI synchronization test.
@@ -28,6 +32,7 @@ pub const ROUTES: &[(&str, &str)] = &[
     ("GET", "/api/v1/health"),
     ("GET", "/api/v1/readiness"),
     ("GET", "/api/v1/version"),
+    ("GET", METRICS_PATH),
     ("POST", "/api/v1/contracts/inspect"),
     ("POST", "/api/v1/contracts/spec"),
     ("POST", "/api/v1/contracts/diff"),
@@ -100,6 +105,7 @@ pub struct Api {
     limiter: RateLimiter,
     config: PlatformConfig,
     counter: AtomicU64,
+    metrics: Metrics,
 }
 
 impl Api {
@@ -113,6 +119,7 @@ impl Api {
             limiter,
             config,
             counter: AtomicU64::new(0),
+            metrics: Metrics::new(),
         }
     }
 
@@ -161,6 +168,7 @@ impl Api {
             "req-{:016x}",
             self.counter.fetch_add(1, Ordering::Relaxed) + 1
         );
+        self.metrics.record_request();
         let principal = self.principal(request);
         let rate_key = principal
             .as_ref()
@@ -176,6 +184,10 @@ impl Api {
                 Err(error) => error_response(error.status, &error.code, &error.message),
             }
         };
+        let analysis = response.status == 200
+            && request.method == "POST"
+            && request.path.starts_with("/api/v1/contracts/");
+        self.metrics.record_outcome(response.status, analysis);
         response
             .headers
             .push(("X-Request-Id".to_string(), request_id));
@@ -252,6 +264,18 @@ impl Api {
                     "api_version": "v1",
                 }),
             )),
+            ("GET", "/api/v1/metrics") => {
+                let snapshot = self.metrics.snapshot();
+                if wants_json(request) {
+                    Ok(response(200, "metrics", &snapshot))
+                } else {
+                    Ok(Response::text(
+                        200,
+                        metrics::CONTENT_TYPE,
+                        snapshot.to_prometheus(),
+                    ))
+                }
+            }
             ("POST", "/api/v1/contracts/inspect") => {
                 self.require(principal, Permission::RunAnalysis)?;
                 let body: InspectRequest = parse_json(request)?;
@@ -328,6 +352,14 @@ impl Api {
             }
         }
     }
+}
+
+fn wants_json(request: &Request) -> bool {
+    request.query.as_deref().is_some_and(|query| {
+        query
+            .split('&')
+            .any(|pair| pair.eq_ignore_ascii_case("format=json"))
+    })
 }
 
 fn parse_json<T: serde::de::DeserializeOwned>(request: &Request) -> Result<T, ApiError> {
@@ -540,5 +572,101 @@ mod tests {
         let (api, key) = api_with_developer();
         let request = with_key(post("/api/v1/contracts/spec", serde_json::json!({})), &key);
         assert_eq!(api.handle(&request, "ip", 0).status, 400);
+    }
+
+    fn metrics_snapshot(api: &Api) -> serde_json::Value {
+        let mut request = get(METRICS_PATH);
+        request.query = Some("format=json".to_string());
+        let response = api.handle(&request, "ip", 0);
+        assert_eq!(response.status, 200);
+        serde_json::from_slice(&response.body).unwrap()
+    }
+
+    #[test]
+    fn metrics_are_exposed_as_valid_prometheus_text() {
+        let api = Api::new(PlatformConfig::default());
+        assert_eq!(api.handle(&get("/api/v1/health"), "ip", 0).status, 200);
+        let response = api.handle(&get(METRICS_PATH), "ip", 0);
+        assert_eq!(response.status, 200);
+        let content_type = &response
+            .headers
+            .iter()
+            .find(|(name, _)| name == "Content-Type")
+            .expect("metrics response has a content type")
+            .1;
+        assert!(content_type.starts_with("text/plain"));
+        assert!(content_type.contains("version=0.0.4"));
+
+        let text = String::from_utf8(response.body).unwrap();
+        assert!(text.ends_with('\n'), "exposition must end with a newline");
+
+        let mut counters = BTreeMap::new();
+        for line in text.lines() {
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let mut parts = line.split_whitespace();
+            let name = parts.next().expect("metric name");
+            let value: u64 = parts
+                .next()
+                .expect("metric value")
+                .parse()
+                .expect("integer metric value");
+            assert!(
+                parts.next().is_none(),
+                "unexpected trailing fields in {line:?}"
+            );
+            assert!(
+                name.starts_with("observatory_api_"),
+                "unexpected metric {name}"
+            );
+            counters.insert(name.to_string(), value);
+        }
+        assert_eq!(
+            counters.get("observatory_api_requests_total"),
+            Some(&2),
+            "health plus the metrics scrape itself"
+        );
+        assert!(counters.contains_key("observatory_api_analyses_total"));
+        assert!(counters.contains_key("observatory_api_errors_total"));
+        assert!(counters.contains_key("observatory_api_rate_limited_total"));
+        assert!(text.contains("# TYPE observatory_api_requests_total counter"));
+        assert!(text.contains("# HELP observatory_api_requests_total"));
+    }
+
+    #[test]
+    fn metrics_json_matches_the_counters() {
+        let api = Api::new(PlatformConfig::default());
+        assert_eq!(api.handle(&get(METRICS_PATH), "ip", 0).status, 200);
+        let value = metrics_snapshot(&api);
+        assert_eq!(value["kind"], "metrics");
+        assert_eq!(value["data"]["requests_total"], 2);
+        assert_eq!(value["tool"], TOOL_NAME);
+    }
+
+    #[test]
+    fn metrics_count_analyses_and_clients_errors() {
+        let (api, key) = api_with_developer();
+        let request = with_key(
+            post(
+                "/api/v1/contracts/inspect",
+                serde_json::json!({ "wasm_base64": contract() }),
+            ),
+            &key,
+        );
+        assert_eq!(api.handle(&request, "ip", 0).status, 200);
+        assert_eq!(api.handle(&get("/api/v1/nope"), "ip", 0).status, 404);
+        let value = metrics_snapshot(&api);
+        assert_eq!(value["data"]["analyses_total"], 1);
+        assert_eq!(value["data"]["errors_total"], 1);
+        assert_eq!(value["data"]["rate_limited_total"], 0);
+    }
+
+    #[test]
+    fn metrics_never_contain_api_keys() {
+        let (api, key) = api_with_developer();
+        let text = String::from_utf8(api.handle(&get(METRICS_PATH), "ip", 0).body).unwrap();
+        assert!(!text.contains(&key));
+        assert!(!text.contains("sco_"));
     }
 }
