@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/installation.md`.
 ### Added
 
+- CI: report test coverage with `cargo-llvm-cov` on pull requests. The job
+  writes a summary to the workflow run, uploads an `lcov.info` artifact, and
+  keeps the coverage floor advisory (`continue-on-error`). See
+  `docs/testing.md`.
 - Deployment: opt-in, bounded, per-run `LedgerEntryCache` with cached
   `inspect_with_cache` and `deployed_wasm_with_cache` lookups; repeated ledger
   keys reuse one `getLedgerEntries` call. See `docs/deployment.md`.
