@@ -92,8 +92,10 @@ criteria, Testing, an example commit message, and guidelines. See
 ## Deployment and release status
 
 - Not deployed as a hosted service.
-- `v0.1.0` release packaging is being added with a tag-driven workflow; crates.io
-  publication remains pending.
+- `v0.1.0` is released with Linux x86_64, macOS arm64, and Windows x86_64
+  archives plus SHA256 checksums:
+  <https://github.com/AyinkxLab/stellar-contract-platform/releases/tag/v0.1.0>
+- crates.io publication remains pending.
 - CI runs format, clippy, tests (Linux/Windows/macOS), docs, MSRV (1.88), and a
   RustSec audit.
 
