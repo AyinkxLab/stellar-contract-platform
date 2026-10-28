@@ -12,3 +12,4 @@ observatory-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 stellar-xdr.workspace = true
+stellar-strkey.workspace = true
