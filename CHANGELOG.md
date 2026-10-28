@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `observatory-cli`, binary `stellar-contract-platform`) and state explicitly
   that no crates.io package or prebuilt binary exists yet. See
   `docs/installation.md`.
+### Security
+
+- Replace the unsound, unmaintained `serde_yml` parser (which pulled in
+  `noyalib` 0.0.5, RUSTSEC-2026-0333) with the maintained `serde_yaml_ng`
+  fork. YAML project configuration parsing is unchanged.
+
 ### Changed
 
 - Raise the workspace MSRV from 1.85 to 1.88 so the locked dependency set
