@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Events: accept raw base64 `ContractEvent` XDR, either as a bare input or an
+  `xdr` field on a fixture entry, and normalize it to the existing `EventRecord`
+  shape. See `docs/events.md`.
+
 ## [0.1.0] - 2026-10-28
 
 First tagged release. Linux x86_64, macOS arm64, and Windows x86_64 archives
@@ -18,9 +24,6 @@ is still pending.
 - CI: report test coverage with `cargo-llvm-cov` on pull requests. The job
   writes a summary to the workflow run, uploads an `lcov.info` artifact, and
   keeps the coverage floor advisory (`continue-on-error`). See `docs/testing.md`.
-- Events: accept raw base64 `ContractEvent` XDR, either as a bare input or an
-  `xdr` field on a fixture entry, and normalize it to the existing `EventRecord`
-  shape. See `docs/events.md`.
 - Deployment: opt-in, bounded, per-run `LedgerEntryCache` with cached
   `inspect_with_cache` and `deployed_wasm_with_cache` lookups; repeated ledger
   keys reuse one `getLedgerEntries` call. See `docs/deployment.md`.
