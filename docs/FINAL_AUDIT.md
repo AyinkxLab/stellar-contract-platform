@@ -45,7 +45,7 @@ matrix.
 
 ## Tests
 
-- `cargo test --workspace --all-features`: **147 tests pass** locally.
+- `cargo test --workspace --all-features`: **180 tests pass** locally.
 - Includes crate unit tests, 10 CLI end-to-end tests, and 18 API tests
   (routing, auth, RBAC, rate limiting, OpenAPI synchronization).
 

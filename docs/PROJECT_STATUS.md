@@ -73,7 +73,7 @@ criteria, Testing, an example commit message, and guidelines. See
 
 ## Testing status
 
-- `cargo test --workspace --all-features`: **147 tests pass** locally.
+- `cargo test --workspace --all-features`: **180 tests pass** locally.
 - `cargo fmt --all -- --check`: clean.
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`: clean.
 - `cargo doc --workspace --no-deps` with `-D warnings`: clean.
