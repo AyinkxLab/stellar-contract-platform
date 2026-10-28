@@ -56,17 +56,26 @@ pub struct ErrorReport {
     pub code: String,
     /// Human-readable message.
     pub message: String,
+    /// Stable JSON-RPC failure kind, when the error came from RPC.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rpc_kind: Option<String>,
+    /// Raw JSON-RPC code exactly as received, when one was present.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rpc_code: Option<i64>,
 }
 
 impl ErrorReport {
     /// Build an error report from a typed error.
     #[must_use]
     pub fn from_error(error: &ObservatoryError) -> Self {
+        let rpc = error.rpc_error();
         ErrorReport {
             schema_version: SCHEMA_VERSION.to_string(),
             kind: "error".to_string(),
             code: error.code().as_str().to_string(),
             message: error.to_string(),
+            rpc_kind: rpc.map(|rpc| rpc.kind().as_str().to_string()),
+            rpc_code: rpc.and_then(observatory_core::RpcError::code),
         }
     }
 
@@ -115,6 +124,29 @@ mod tests {
         assert_eq!(report.kind, "error");
         assert_eq!(report.code, "wasm");
         assert!(report.to_json().unwrap().contains("\"code\":\"wasm\""));
+    }
+
+    #[test]
+    fn error_report_exposes_rpc_kind_and_raw_code() {
+        let error = ObservatoryError::from_rpc_error(observatory_core::RpcError::from_code(
+            -32602,
+            "bad params",
+        ));
+        let report = ErrorReport::from_error(&error);
+        assert_eq!(report.code, "rpc");
+        assert_eq!(report.rpc_kind.as_deref(), Some("invalid_params"));
+        assert_eq!(report.rpc_code, Some(-32602));
+        let json = report.to_json().unwrap();
+        assert!(json.contains("\"rpc_kind\":\"invalid_params\""));
+        assert!(json.contains("\"rpc_code\":-32602"));
+    }
+
+    #[test]
+    fn non_rpc_error_reports_omit_rpc_fields() {
+        let report = ErrorReport::from_error(&ObservatoryError::wasm("bad"));
+        assert!(report.rpc_kind.is_none());
+        assert!(report.rpc_code.is_none());
+        assert!(!report.to_json().unwrap().contains("rpc_kind"));
     }
 
     #[test]

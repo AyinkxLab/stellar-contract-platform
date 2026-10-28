@@ -143,6 +143,14 @@ Error:
 { "schema_version": "1.0", "kind": "error", "code": "bad_request", "message": "..." }
 ```
 
+RPC failures additionally include the typed kind and preserved raw code:
+
+```json
+{ "schema_version": "1.0", "kind": "error", "code": "rpc", "message": "...", "rpc_kind": "method_not_found", "rpc_code": -32601 }
+```
+
+See [`rpc-errors.md`](rpc-errors.md) for the full taxonomy.
+
 ## Status codes
 
 | Status | Meaning |

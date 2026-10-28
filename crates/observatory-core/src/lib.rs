@@ -10,7 +10,7 @@ pub mod limits;
 pub mod network;
 pub mod output;
 
-pub use error::{ErrorCode, ExitCode, ObservatoryError, Result};
+pub use error::{ErrorCode, ExitCode, ObservatoryError, Result, RpcError, RpcErrorKind};
 pub use network::Network;
 pub use output::OutputFormat;
 

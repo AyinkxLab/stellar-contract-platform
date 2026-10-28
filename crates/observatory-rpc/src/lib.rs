@@ -18,6 +18,7 @@ use serde_json::{json, Value};
 pub mod net;
 
 pub use net::{AddressClass, SsrfPolicy};
+pub use observatory_core::{RpcError, RpcErrorKind};
 
 /// A JSON-RPC transport. Implementations move already-built envelopes.
 pub trait Transport {
@@ -208,14 +209,14 @@ impl<T: Transport> RpcClient<T> {
         });
         let response = self.transport.send(&request)?;
         if let Some(error) = response.get("error") {
-            let code = error.get("code").and_then(Value::as_i64).unwrap_or(0);
+            let code = error.get("code").and_then(Value::as_i64);
             let message = error
                 .get("message")
                 .and_then(Value::as_str)
                 .unwrap_or("unknown RPC error");
-            return Err(ObservatoryError::rpc(format!(
-                "{method} failed: {message} (code {code})"
-            )));
+            return Err(ObservatoryError::from_rpc_error(
+                RpcError::from_optional_code(code, format!("{method} failed: {message}")),
+            ));
         }
         response
             .get("result")
@@ -456,6 +457,49 @@ mod tests {
         let error = client.get_network().unwrap_err();
         assert!(matches!(error, ObservatoryError::Rpc(_)));
         assert!(error.to_string().contains("not found"));
+        let rpc = error.rpc_error().expect("typed rpc error");
+        assert_eq!(rpc.kind(), RpcErrorKind::MethodNotFound);
+        assert_eq!(rpc.code(), Some(-32601));
+        assert_eq!(rpc.raw_code(), Some(-32601));
+    }
+
+    #[test]
+    fn classifies_standard_rpc_error_codes() {
+        let cases = [
+            (-32700, RpcErrorKind::Parse),
+            (-32600, RpcErrorKind::InvalidRequest),
+            (-32601, RpcErrorKind::MethodNotFound),
+            (-32602, RpcErrorKind::InvalidParams),
+            (-32603, RpcErrorKind::Internal),
+            (-32042, RpcErrorKind::Server),
+        ];
+        for (code, expected) in cases {
+            let transport = MockTransport::new().with_error("getNetwork", code, "failure");
+            let client = RpcClient::new(Endpoint::parse("https://example.org").unwrap(), transport);
+            let rpc = client
+                .get_network()
+                .unwrap_err()
+                .rpc_error()
+                .cloned()
+                .expect("typed rpc error");
+            assert_eq!(rpc.kind(), expected, "code {code}");
+            assert_eq!(rpc.code(), Some(code), "raw code {code}");
+        }
+    }
+
+    #[test]
+    fn preserves_unknown_provider_codes() {
+        let transport = MockTransport::new().with_error("getNetwork", -77777, "custom");
+        let client = RpcClient::new(Endpoint::parse("https://example.org").unwrap(), transport);
+        let rpc = client
+            .get_network()
+            .unwrap_err()
+            .rpc_error()
+            .cloned()
+            .expect("typed rpc error");
+        assert_eq!(rpc.kind(), RpcErrorKind::Unknown);
+        assert_eq!(rpc.kind().as_str(), "unknown");
+        assert_eq!(rpc.raw_code(), Some(-77777));
     }
 
     #[test]
