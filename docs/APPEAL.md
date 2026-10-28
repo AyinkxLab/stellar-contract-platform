@@ -16,11 +16,35 @@ guarantee reconsideration. Appeals are decided by the Stellar Wave organizers.
    - Maximum **three appeals** per repository.
 4. Submit **only through the app**; email/Discord appeals are ignored.
 
+## If you have already waited 14 days
+
+If the dashboard shows the repository as **Rejected** and the **Appeal** button
+is enabled, submit now. You do not need the exact rejection date; the app
+enforces the two-week minimum. If the button is disabled, wait until it enables.
+
+If the form asks for the rejection reason and none was provided, say so plainly:
+"No reason was provided in the dashboard or email. The appeal addresses the
+objective gaps: red CI, stale documentation, no installable release, and scope
+overlap with other repositories."
+
+## Current merged state
+
+- `main`: `c7e93f4`
+- CI: [run 40734304944](https://github.com/AyinkxLab/stellar-contract-platform/actions/runs/40734304944) — success
+- Release: [v0.1.0](https://github.com/AyinkxLab/stellar-contract-platform/releases/tag/v0.1.0) — Linux, macOS, Windows + SHA256
+- Merged readiness PRs: #139 (CI/metadata), #140 (appeal/demo), #142 and #143 (release docs)
+- Open issues: 122; curated Wave board: 20 issues / 2,700 points
+- Tests: 180 passing
+
+No rejection reason was provided in the dashboard or email. The appeal below
+addresses the objective quality gaps and leaves a slot for any specific concern
+the reviewer wants to add.
+
 ## What changed since the last review
 
 | Concern | Change | Evidence |
 | ------- | ------ | -------- |
-| CI was red | MSRV raised to 1.88; `serde_yml` replaced with `serde_yaml_ng`; RustSec clean | CI and `Dependency Security Audit` on `main` |
+| CI was red | MSRV raised to 1.88; `serde_yml` replaced with `serde_yaml_ng`; RustSec clean | [CI run 40734304944](https://github.com/AyinkxLab/stellar-contract-platform/actions/runs/40734304944) |
 | Docs pointed at the old owner | Repository, install, and Wave links now use `AyinkxLab/...` | README, `Cargo.toml`, `docs/installation.md`, `docs/WAVE_BOARD.md` |
 | Docs claimed 130 issues and CI success | Counts and CI status updated; completed issues closed | `docs/PROJECT_STATUS.md`, `docs/FINAL_AUDIT.md`, `docs/ISSUE_BACKLOG.md` |
 | Wave board contained completed work | #9, #102, #112 closed; board rebuilt with open, independent issues | `docs/WAVE_BOARD.md` |
@@ -50,7 +74,7 @@ guarantee reconsideration. Appeals are decided by the Stellar Wave organizers.
 >
 > Evidence:
 > - Repository: https://github.com/AyinkxLab/stellar-contract-platform
-> - CI: https://github.com/AyinkxLab/stellar-contract-platform/actions
+> - CI: https://github.com/AyinkxLab/stellar-contract-platform/actions/runs/40734304944
 > - Release: https://github.com/AyinkxLab/stellar-contract-platform/releases/tag/v0.1.0
 > - Status: https://github.com/AyinkxLab/stellar-contract-platform/blob/main/docs/PROJECT_STATUS.md
 > - Scope: https://github.com/AyinkxLab/stellar-contract-platform/blob/main/docs/WHY_OBSERVATORY.md
