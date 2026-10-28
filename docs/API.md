@@ -5,7 +5,8 @@ API. The API is a thin transport over the same services the CLI uses; it perform
 no analysis of its own.
 
 - Base path: `/api/v1`
-- Content type: `application/json`
+- Content type: `application/json` (Prometheus text exposition for
+  `GET /api/v1/metrics`)
 - Transport: a minimal bounded HTTP/1.1 adapter (`observatory-api::http`)
 - OpenAPI: `stellar-contract-platform api openapi`
 
@@ -52,8 +53,9 @@ Roles are hierarchical. Each endpoint requires a permission.
 | `maintainer` | developer + `manage_webhooks` |
 | `admin` | maintainer + `manage_keys` |
 
-Analysis endpoints require `run_analysis`. `GET /health`, `/readiness`, and
-`/version` are public.
+Analysis endpoints require `run_analysis`. `GET /health`, `/readiness`,
+`/version`, and `/metrics` are public. Metrics expose only aggregate counters,
+never endpoints, keys, or payloads.
 
 ## Rate limiting
 
@@ -82,6 +84,27 @@ Reports readiness and whether authentication is required.
 
 ### `GET /api/v1/version` (public)
 Tool version, schema version, and API version.
+
+### `GET /api/v1/metrics` (public)
+Aggregate request counters in the Prometheus text exposition format
+(`text/plain; version=0.0.4`):
+
+```text
+# HELP observatory_api_requests_total Total HTTP requests handled.
+# TYPE observatory_api_requests_total counter
+observatory_api_requests_total 42
+```
+
+`?format=json` returns the same counters in the standard report envelope:
+
+```json
+{ "schema_version": "1.0", "kind": "metrics", "tool": "stellar-contract-platform", "version": "0.1.0", "data": { "requests_total": 42, "analyses_total": 7, "errors_total": 3, "rate_limited_total": 0 } }
+```
+
+Counters are process-local and monotonic. They cover every handled request,
+successful contract analyses, responses with a `4xx`/`5xx` status, and requests
+rejected by the rate limiter. The exposition is deterministic and contains no
+secrets.
 
 ### `POST /api/v1/contracts/inspect`
 Body: `{ "wasm_base64": "...", "security": false }`.

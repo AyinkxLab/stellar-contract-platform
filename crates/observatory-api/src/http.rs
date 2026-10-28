@@ -73,6 +73,16 @@ impl Response {
         }
     }
 
+    /// Build a text response with an explicit content type.
+    #[must_use]
+    pub fn text(status: u16, content_type: &str, body: impl Into<String>) -> Self {
+        Response {
+            status,
+            headers: vec![("Content-Type".to_string(), content_type.to_string())],
+            body: body.into().into_bytes(),
+        }
+    }
+
     /// Add a header.
     #[must_use]
     pub fn with_header(mut self, name: &str, value: impl Into<String>) -> Self {
