@@ -47,6 +47,9 @@ cargo build --release
 ```
 
 ```bash
+# Run the offline demo (inspect, spec, diff, compat, fingerprint)
+bash demo/run-demo.sh
+
 # Inspect an artifact (JSON)
 stellar-contract-platform inspect contract.wasm --json
 
@@ -83,13 +86,17 @@ Early but practical. The project focuses on contract intelligence, compatibility
 
 ## Documentation
 
+- [Why Observatory](docs/WHY_OBSERVATORY.md)
 - [Architecture](docs/architecture.md)
 - [Getting started](docs/getting-started.md)
+- [Installation](docs/installation.md)
 - [CLI reference](docs/cli.md)
 - [Compatibility](docs/compatibility.md)
 - [Verification](docs/verification.md)
+- [Demo](demo/README.md)
 - [Roadmap](docs/roadmap.md)
 - [Drips readiness and appeal checklist](docs/DRIPS_READINESS.md)
+- [Appeal summary](docs/APPEAL.md)
 
 ## License
 

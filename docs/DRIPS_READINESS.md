@@ -10,6 +10,32 @@ artifacts, parsing and fingerprinting contract interfaces, classifying interface
 changes, evaluating compatibility policies, and verifying deployed artifact
 identity. It includes a CLI and an API/platform layer.
 
+## Current readiness snapshot (2026-10-28)
+
+- **MSRV:** Rust 1.88, tested in CI (`MSRV (1.88.0)`).
+- **Dependencies:** `serde_yml` replaced with `serde_yaml_ng`; `noyalib` is no
+  longer present. `cargo audit` reports 0 vulnerabilities (one allowed,
+  non-vulnerability warning for the unmaintained `unsafe-libyaml`).
+- **CI:** Format, Clippy, tests on Linux/Windows/macOS, docs, coverage, MSRV, and
+  the RustSec audit are green on `main` after the readiness PR.
+- **Release:** a tag-driven `Release` workflow builds Linux x86_64, macOS arm64,
+  and Windows x86_64 archives with SHA256 checksums.
+- **Backlog:** 123 open issues; the curated [Wave board](WAVE_BOARD.md) has 20
+  open, independent, unimplemented issues (2,700 points).
+- **Docs:** repository, install, and Wave links use `AyinkxLab/...`; completed
+  issues #9, #102, and #112 are closed and removed from the board.
+- **Positioning:** [Why Observatory](WHY_OBSERVATORY.md) documents the boundary
+  with `ai-code-assistant`, `stellar-devkit`, and `soroban-security-scanner`.
+- **Not done:** crates.io publication, live RPC transport, persistence, SDKs,
+  webhooks, and a composite GitHub Action.
+
+## Contribution integrity
+
+Do not count commits from accounts controlled by the maintainer as independent
+external contributions. Reviewers can correlate account ownership and activity
+patterns, and sockpuppeting is a Wave terms violation. If there are no genuinely
+independent contributors yet, say so and describe the outreach plan instead.
+
 ## Verified implementation and boundaries
 
 Implemented capabilities are tracked in [Project Status](PROJECT_STATUS.md) and
