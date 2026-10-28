@@ -10,12 +10,12 @@ GitHub issues.
 - Deployed WASM retrieval (`LedgerKeyContractCode`) and interface comparison of
   local vs. deployed code.
 - Rename detection in the diff engine.
-- Interface diff output formats beyond text/JSON.
 
 ## Medium term
 
 - GitHub Action and an `observatory.yml` configuration schema.
-- Report generation (Markdown) for inspection, diff, and compatibility.
+- Markdown report generation for inspection and compatibility results (the diff
+  renderer already exists).
 - Additional hash algorithms / selectable fingerprints.
 - More audit rules, each with a documented rationale.
 
@@ -25,7 +25,8 @@ GitHub issues.
   comparison.
 - Multi-provider RPC support and caching.
 - Fuzzing targets for the WASM, spec, event, and diff parsers.
-- crates.io packaging and release automation.
+- crates.io packaging for the workspace (the tag-driven binary release workflow
+  is already in place).
 
 ## Non-goals
 
