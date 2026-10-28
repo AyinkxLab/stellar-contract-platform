@@ -21,7 +21,7 @@ identity. It includes a CLI and an API/platform layer.
 - **Release:** `v0.1.0` is published with Linux x86_64, macOS arm64, and Windows
   x86_64 archives plus SHA256 checksums:
   <https://github.com/AyinkxLab/stellar-contract-platform/releases/tag/v0.1.0>.
-- **Backlog:** 123 open issues; the curated [Wave board](WAVE_BOARD.md) has 20
+- **Backlog:** 122 open issues; the curated [Wave board](WAVE_BOARD.md) has 20
   open, independent, unimplemented issues (2,700 points).
 - **Docs:** repository, install, and Wave links use `AyinkxLab/...`; completed
   issues #9, #102, and #112 are closed and removed from the board.

@@ -13,40 +13,11 @@ First tagged release. Linux x86_64, macOS arm64, and Windows x86_64 archives
 with SHA256 checksums are attached to the GitHub Release. crates.io publication
 is still pending.
 
-### Changed
-
-- Build: raised the workspace MSRV from 1.85 to 1.88 to match the
-  `stellar-xdr 28` → `serde_with` → `darling` toolchain requirement, and updated
-  the MSRV CI job.
-- Security: replaced the unmaintained `serde_yml` dependency with
-  `serde_yaml_ng`, removing `noyalib` and resolving RUSTSEC-2026-0333.
-- Documentation: point repository, installation, and Wave links at
-  `AyinkxLab/stellar-contract-platform`.
-
-### Documentation
-
-- Installation: document the working `cargo install --git` path (package
-  `observatory-cli`, binary `stellar-contract-platform`) and state explicitly
-  that no crates.io package or prebuilt binary exists yet. See
-  `docs/installation.md`.
-### Security
-
-- Replace the unsound, unmaintained `serde_yml` parser (which pulled in
-  `noyalib` 0.0.5, RUSTSEC-2026-0333) with the maintained `serde_yaml_ng`
-  fork. YAML project configuration parsing is unchanged.
-
-### Changed
-
-- Raise the workspace MSRV from 1.85 to 1.88 so the locked dependency set
-  (`wasmparser` 0.259, `stellar-strkey` 0.0.18, `serde_with` 3.23) resolves and
-  the MSRV CI job matches the workspace `rust-version`.
-
 ### Added
 
 - CI: report test coverage with `cargo-llvm-cov` on pull requests. The job
   writes a summary to the workflow run, uploads an `lcov.info` artifact, and
-  keeps the coverage floor advisory (`continue-on-error`). See
-  `docs/testing.md`.
+  keeps the coverage floor advisory (`continue-on-error`). See `docs/testing.md`.
 - Events: accept raw base64 `ContractEvent` XDR, either as a bare input or an
   `xdr` field on a fixture entry, and normalize it to the existing `EventRecord`
   shape. See `docs/events.md`.
@@ -98,14 +69,36 @@ is still pending.
 - `observatory-cli`: `inspect`, `spec`, `events`, `diff`, `compat`,
   `fingerprint`, `deployment`, `verify`, and `doctor`, all with `--json`.
 - CI: format, clippy, and tests on Linux, Windows, and macOS.
-
-### Notes
-
-- No live HTTP RPC transport is shipped yet. Deployment and verification run against deterministic RPC fixtures.
-- The audit crate is not a security auditor.
+- Release: tag-driven Linux/macOS/Windows binaries with SHA256 checksums.
+- Documentation: `docs/WHY_OBSERVATORY.md`, `docs/APPEAL.md`, and an offline
+  `demo/` with deterministic old/new WASM fixtures.
 
 ### Changed
 
+- Build: raised the workspace MSRV from 1.85 to 1.88 so the locked dependency set
+  (`wasmparser` 0.259, `stellar-strkey` 0.0.18, `serde_with` 3.23) resolves and
+  the MSRV CI job matches the workspace `rust-version`.
 - The repository was renamed to `stellar-contract-platform`. The CLI binary
   (`stellar-contract-platform`), the `observatory-*` crates, and the product
   name remain unchanged; only the repository URL and clone instructions changed.
+- Documentation: repository, installation, and Wave links now use
+  `AyinkxLab/stellar-contract-platform`.
+
+### Security
+
+- Replaced the unsound, unmaintained `serde_yml` parser (which pulled in
+  `noyalib` 0.0.5, RUSTSEC-2026-0333) with the maintained `serde_yaml_ng`
+  fork. YAML project configuration parsing is unchanged.
+
+### Documentation
+
+- Installation: document the prebuilt archives and the working
+  `cargo install --git` path (package `observatory-cli`, binary
+  `stellar-contract-platform`). See `docs/installation.md`.
+- Project status, final audit, issue backlog, and Wave board now match `main`.
+
+### Notes
+
+- No live HTTP RPC transport is shipped yet. Deployment and verification run
+  against deterministic RPC fixtures.
+- The audit crate is not a security auditor.
