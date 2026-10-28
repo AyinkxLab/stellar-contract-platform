@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/installation.md`.
 ### Added
 
+- Typed JSON-RPC error taxonomy: `RpcError`/`RpcErrorKind` classify standard
+  JSON-RPC codes, preserve unknown raw codes, and expose `rpc_kind`/`rpc_code`
+  in error reports. See `docs/rpc-errors.md`.
 - Project configuration: `observatory.yml`/`.yaml`/`.toml`/`.json` with strict
   validation and auto-discovery, plus `--config`. Selects the compatibility
   policy and API auth/rate-limit defaults, and provides a default network for
