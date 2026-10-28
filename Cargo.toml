@@ -27,7 +27,7 @@ authors = ["StellarFoundry"]
 repository = "https://github.com/StellarFoundry/stellar-contract-platform"
 homepage = "https://github.com/StellarFoundry/stellar-contract-platform"
 description = "Contract intelligence, inspection, interface analysis, compatibility, deployment verification, and reproducibility tooling for Stellar and Soroban contracts."
-rust-version = "1.85"
+rust-version = "1.88"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }

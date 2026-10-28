@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `observatory-cli`, binary `stellar-contract-platform`) and state explicitly
   that no crates.io package or prebuilt binary exists yet. See
   `docs/installation.md`.
+### Changed
+
+- Raise the workspace MSRV from 1.85 to 1.88 so the locked dependency set
+  (`wasmparser` 0.259, `stellar-strkey` 0.0.18, `serde_with` 3.23) resolves and
+  the MSRV CI job matches the workspace `rust-version`.
+
 ### Added
 
 - CI: report test coverage with `cargo-llvm-cov` on pull requests. The job
