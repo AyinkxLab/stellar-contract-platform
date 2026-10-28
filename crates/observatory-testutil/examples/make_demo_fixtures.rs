@@ -10,8 +10,8 @@
 
 use std::fs;
 
-use observatory_testutil::spec::{spec_function, spec_struct, ty_udt};
 use observatory_testutil::module_with_spec;
+use observatory_testutil::spec::{spec_function, spec_struct, ty_udt};
 use stellar_xdr::ScSpecTypeDef;
 
 fn main() {
