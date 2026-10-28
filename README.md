@@ -23,14 +23,14 @@ A Rust-first toolkit for inspecting, comparing, and verifying Stellar / Soroban 
 
 ## Install
 
-Prebuilt binaries and crates.io packages do not exist yet, so there are two
-supported install paths today; see [`docs/installation.md`](docs/installation.md).
+Download a prebuilt archive for Linux, macOS, or Windows from the
+[Releases page](https://github.com/AyinkxLab/stellar-contract-platform/releases).
+Each archive has a SHA256 checksum. crates.io publication is still pending.
 
-Install the binary straight from the repository (a recent stable Rust
-toolchain is required):
+Install the binary from the repository (Rust 1.88 or newer):
 
 ```bash
-cargo install --git https://github.com/StellarFoundry/stellar-contract-platform observatory-cli --locked
+cargo install --git https://github.com/AyinkxLab/stellar-contract-platform observatory-cli --locked
 stellar-contract-platform doctor
 ```
 

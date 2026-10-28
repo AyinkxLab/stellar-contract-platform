@@ -24,10 +24,10 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["StellarFoundry"]
-repository = "https://github.com/StellarFoundry/stellar-contract-platform"
-homepage = "https://github.com/StellarFoundry/stellar-contract-platform"
+repository = "https://github.com/AyinkxLab/stellar-contract-platform"
+homepage = "https://github.com/AyinkxLab/stellar-contract-platform"
 description = "Contract intelligence, inspection, interface analysis, compatibility, deployment verification, and reproducibility tooling for Stellar and Soroban contracts."
-rust-version = "1.85"
+rust-version = "1.88"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -42,7 +42,7 @@ stellar-xdr = { version = "28.0.0", features = ["serde", "base64", "alloc"] }
 stellar-strkey = "0.0.18"
 base64 = "0.22"
 getrandom = "0.2"
-serde_yml = "0.0.13"
+serde_yaml_ng = "0.10"
 toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

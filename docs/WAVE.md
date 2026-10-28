@@ -47,7 +47,7 @@ Only add a curated, Wave-sized subset with a points budget — see
 ## Claiming an issue
 
 1. Pick an issue. Start with
-   [`good first issue`](https://github.com/StellarFoundry/stellar-contract-platform/labels/good%20first%20issue)
+   [`good first issue`](https://github.com/AyinkxLab/stellar-contract-platform/labels/good%20first%20issue)
    if you are new.
 2. **Request assignment before starting.** Apply through the Wave dashboard or
    comment on the issue. Do not open a pull request for an issue you have not

@@ -5,7 +5,7 @@ checks support.
 
 ## Repository
 
-`StellarFoundry/stellar-contract-platform`, default branch `main`.
+`AyinkxLab/stellar-contract-platform`, default branch `main`.
 
 ## Architecture
 
@@ -41,19 +41,21 @@ matrix.
 | Persistence | Not implemented (#42) |
 | GitHub Action | Not implemented (#27) |
 | Fuzzing | Not implemented (#5, #7) |
-| Release packaging | Not implemented (#29) |
+| Release packaging | In progress: tag-driven release workflow |
 
 ## Tests
 
-- `cargo test --workspace --all-features`: **129 tests pass** locally.
+- `cargo test --workspace --all-features`: **147 tests pass** locally.
 - Includes crate unit tests, 10 CLI end-to-end tests, and 18 API tests
   (routing, auth, RBAC, rate limiting, OpenAPI synchronization).
 
 ## CI
 
 `.github/workflows/ci.yml` runs Format, Clippy, Tests on Ubuntu/Windows/macOS,
-and a documentation build with `-D warnings`. It has completed successfully on
-`main`; results are visible on the repository Actions page.
+a documentation build with `-D warnings`, and an MSRV build/test on Rust 1.88.0.
+`.github/workflows/security-audit.yml` runs the RustSec advisory audit. The
+dependency/MSRV failures from the previous `main` run were fixed by replacing
+`serde_yml` with `serde_yaml_ng` and raising the MSRV to 1.88.
 
 ## Security controls
 
@@ -94,7 +96,7 @@ ISSUE_BACKLOG, FINAL_AUDIT.
 
 ## Contributor backlog
 
-130 open issues, each with Context, Problem, Objective, Scope, Acceptance
+123 open issues, each with Context, Problem, Objective, Scope, Acceptance
 criteria, Testing, Relevant modules/files, Implementation guidance, an example
 commit message, and guidelines. Dependencies are explicit. No aggregate point or
 reward figures are published anywhere, and an automated audit found zero
